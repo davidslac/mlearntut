@@ -92,6 +92,7 @@ def shuffle_data(X,Y):
 
 if __name__ == '__main__':
     print("-- imports done, starting main --")
+    t0 = time.time()
     training_X, training_Y = readData([
         # 3 nolasing files
         'amo86815_mlearn-r069-c0011.h5',
@@ -106,18 +107,18 @@ if __name__ == '__main__':
         'amo86815_mlearn-r069-c0031.h5',
         # 1 lasing files
         'amo86815_mlearn-r070-c0029.h5'])
-
+    read_time = time.time()-t0
+    minibatch_size = 12
+    batches_per_epoch = len(training_X)//minibatch_size
+    print("-- read %d samples in %.2fsec. batch_size=%d, %d batches per epoch" %
+          (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
+    
+    shuffle_data(validation_X, validation_Y)
     model = build_model()
     
     lr = 0.005
     sgd = SGD(lr=lr, momentum=0.9)
     model.compile(loss='categorical_crossentropy', optimizer=sgd)
-
-    minibatch_size = 12
-
-    batches_per_epoch = len(training_X)//minibatch_size
-    
-    shuffle_data(validation_X, validation_Y)
 
     for epoch in range(3):
         shuffle_data(training_X, training_Y)
@@ -129,4 +130,5 @@ if __name__ == '__main__':
             t0 = time.time()
             train_loss = model.train_on_batch(X,Y)
             train_time = time.time()-t0
-            print("train_loss=%.3f train_step_time=%.2f" % (train_loss, train_time))
+            print("epoch=%d batch=%d train_loss=%.3f train_step_time=%.2f" % 
+                  (epoch, batch_number, train_loss, train_time))
