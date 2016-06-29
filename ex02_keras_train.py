@@ -37,6 +37,9 @@ def get_confusion_matrix_one_hot(model_results, truth):
 def get_acc_cmat_for_msg(model, X, Y, fmtLen):
     predict = model.predict(X)
     confusion_matrix = get_confusion_matrix_one_hot(predict, Y)
+    return get_acc_cmat_for_msg_from_cmat(confusion_matrix, fmtLen)
+
+def get_acc_cmat_for_msg_from_cmat(confusion_matrix, fmtLen):
     accuracy = np.trace(confusion_matrix)/np.sum(confusion_matrix)
     fmtstr = '%' + str(fmtLen) + 'd'
     cmat_rows = []
