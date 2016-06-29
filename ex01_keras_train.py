@@ -96,19 +96,19 @@ if __name__ == '__main__':
     training_X, training_Y = readData([
         # 3 nolasing files
         'amo86815_mlearn-r069-c0011.h5',
-#        'amo86815_mlearn-r069-c0012.h5',
-#        'amo86815_mlearn-r069-c0013.h5',
+        'amo86815_mlearn-r069-c0012.h5',
+        'amo86815_mlearn-r069-c0013.h5',
         # 3 lasing files
-#        'amo86815_mlearn-r070-c0009.h5',
-#        'amo86815_mlearn-r070-c0014.h5',
-        'amo86815_mlearn-r071-c0016.h5'])
+        'amo86815_mlearn-r070-c0009.h5',
+        'amo86815_mlearn-r070-c0014.h5',
+        'amo86815_mlearn-r070-c0016.h5'])
     validation_X, validation_Y = readData([
         # 1 nolasing files
         'amo86815_mlearn-r069-c0031.h5',
         # 1 lasing files
         'amo86815_mlearn-r070-c0029.h5'])
     read_time = time.time()-t0
-    minibatch_size = 12
+    minibatch_size = 24
     batches_per_epoch = len(training_X)//minibatch_size
     print("-- read %d samples in %.2fsec. batch_size=%d, %d batches per epoch" %
           (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
@@ -120,6 +120,8 @@ if __name__ == '__main__':
     sgd = SGD(lr=lr, momentum=0.9)
     model.compile(loss='categorical_crossentropy', optimizer=sgd)
 
+    # EXPLAIN: why not use fit? 
+    # fit takes X,Y numpy arrays in memory, easier, but doesn't scale
     for epoch in range(3):
         shuffle_data(training_X, training_Y)
         next_sample_idx = -minibatch_size
@@ -132,3 +134,4 @@ if __name__ == '__main__':
             train_time = time.time()-t0
             print("epoch=%d batch=%d train_loss=%.3f train_step_time=%.2f" % 
                   (epoch, batch_number, train_loss, train_time))
+    # EXPLAIN: better to have minibatch size evenly divide number train samples
