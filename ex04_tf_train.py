@@ -58,14 +58,13 @@ def readData(files,
     return X_all, Y_all
 
 class SequentialModel(object):
-    def __init__(self, img_placeholder, train_placeholder, numOutputs):
+    def __init__(self, img_placeholder, numOutputs):
         self.img_placeholder = img_placeholder
-        self.train_placeholder = train_placeholder
         self.numOutputs = numOutputs
         self.layers = []
         self.names = []
         self.vars_to_regularize = []
-        self.final = None
+        self.final_logits = None
         
     def add(self, op, var_to_reg=None):
         self.layers.append(op)
@@ -74,9 +73,12 @@ class SequentialModel(object):
             self.vars_to_regularize.append(var_to_reg)
         return op
 
-def build_model(img_placeholder, train_placeholder, numOutputs):
+    def save_weights(fname, overwrite):
+        pass
+    
+def build_model(img_placeholder, numOutputs):
 
-    model = SequentialModel(img_placeholder, train_placeholder, numOutputs)
+    model = SequentialModel(img_placeholder, numOutputs)
 
     img_float = model.add(op=tf.to_float(img_placeholder, name='img_float'))
 
@@ -160,7 +162,7 @@ def train(train_files, validation_files, saved_model):
     labels_placeholder = tf.placeholder(tf.float32, 
                                         shape=(None, numOutputs),
                                         name='labels')
-    model = build_model(img_placeholder, labels_placeholder, numOutputs=2)    
+    model = build_model(img_placeholder, numOutputs=2)    
 
      ## loss 
     cross_entropy_loss_all = tf.nn.softmax_cross_entropy_with_logits(model.final_logits,
@@ -180,7 +182,7 @@ def train(train_files, validation_files, saved_model):
     train_op = optimizer.minimize(cross_entropy_loss, global_step=global_step)
 
     # EXPLAIN: tensor flow session, also a with way of doing it
-    sess = tf.Session()#config=tf.ConfigProto(intra_op_parallelism_threads = 12))
+    sess = tf.Session() #config=tf.ConfigProto(intra_op_parallelism_threads = 12))
 
     init = tf.initialize_all_variables()
     sess.run(init)
