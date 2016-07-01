@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import sys
 import time
 import random
 import math
@@ -49,6 +50,8 @@ def get_acc_cmat_for_msg_from_cmat(confusion_matrix, fmtLen):
 
 if __name__ == '__main__':
     print("-- imports done, starting main --")
+    sys.stdout.flush()
+
     t0 = time.time()
     training_X, training_Y = ex01.readData([
         # 3 nolasing files
@@ -69,7 +72,8 @@ if __name__ == '__main__':
     batches_per_epoch = len(training_X)//minibatch_size
     print("-- read %d samples in %.2fsec. batch_size=%d, %d batches per epoch" %
           (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
-    
+    sys.stdout.flush()
+
     ex01.shuffle_data(validation_X, validation_Y)
     # EXPLAIN: there are 500 rows in file we read, make smaller to speed up validations
     VALIDATION_SIZE = 30
@@ -89,6 +93,7 @@ if __name__ == '__main__':
     fmtLen = int(math.ceil(math.log(max(minibatch_size, VALIDATION_SIZE),10)))
 
     print(" epoch batch  step   loss tr.sec vl.sec tr.acc vl.acc vl.sec  tr.cmat vl.cmat")
+    sys.stdout.flush()
     for epoch in range(3):
         ex01.shuffle_data(training_X, training_Y)
         next_sample_idx = -minibatch_size
@@ -117,3 +122,4 @@ if __name__ == '__main__':
                                              cmat_valid_rows[row]))
             else:
                 print(msg)
+            sys.stdout.flush()

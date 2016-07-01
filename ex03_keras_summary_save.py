@@ -25,7 +25,8 @@ def train(train_files, validation_files, save_fname):
     batches_per_epoch = len(training_X)//minibatch_size
     print("-- read %d samples in %.2fsec. batch_size=%d, %d batches per epoch" %
           (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
-    
+    sys.stdout.flush()
+
     ex01.shuffle_data(validation_X, validation_Y)
     # EXPLAIN: there are 500 rows in file we read, make smaller to speed up validations
     VALIDATION_SIZE = 80
@@ -46,6 +47,7 @@ def train(train_files, validation_files, save_fname):
 
     best_acc = 0.0
     print(" epoch batch  step   loss tr.sec vl.sec tr.acc vl.acc vl.sec  tr.cmat vl.cmat")
+    sys.stdout.flush()
     for epoch in range(3):
         ex01.shuffle_data(training_X, training_Y)
         next_sample_idx = -minibatch_size
@@ -79,12 +81,14 @@ def train(train_files, validation_files, save_fname):
                                              cmat_valid_rows[row]))
             else:
                 print(msg)
-            
+            sys.stdout.flush()
+
 def predict(predict_files, save_fname):
     # EXPLAIN: normally no Y for predict files
     Xall, Yall = ex01.readData(predict_files)
     minibatch_size = 64
     print("read %d samples for prediction" % len(Xall))
+    sys.stdout.flush()
 
     model = ex01.build_model()
     lr = 0.002
@@ -104,11 +108,12 @@ def predict(predict_files, save_fname):
         Y=Yall[idx:(idx+minibatch_size)]
         Ypred[idx:(idx+minibatch_size)] = model.predict(X)
     cmat = ex02.get_confusion_matrix_one_hot(Ypred, Yall)
-    print(cmat)
+
     acc, cmat_rows = ex02.get_acc_cmat_for_msg_from_cmat(cmat, 3)
     print("Ran predictions. Accuracy: %.2f %d samples" % (acc, len(Ypred)))
     for row in cmat_rows:
         print(row)
+    sys.stdout.flush()
 
 if __name__ == '__main__':
     HELP = '''usage: %s cmd, where cmd is one or 'predict' or 'train'.''' % os.path.basename(__file__)

@@ -72,9 +72,6 @@ class SequentialModel(object):
         if var_to_reg:
             self.vars_to_regularize.append(var_to_reg)
         return op
-
-    def save_weights(fname, overwrite):
-        pass
     
 def build_model(img_placeholder, numOutputs):
 
@@ -150,7 +147,8 @@ def train(train_files, validation_files, saved_model):
     batches_per_epoch = len(training_X)//minibatch_size
     print("-- read %d samples in %.2fsec. batch_size=%d, %d batches per epoch" %
           (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
-    
+    sys.stdout.flush()
+
     VALIDATION_SIZE = 80
     validation_X = validation_X[0:VALIDATION_SIZE]
     validation_Y = validation_Y[0:VALIDATION_SIZE]
@@ -199,6 +197,7 @@ def train(train_files, validation_files, saved_model):
 
     best_acc = 0.0
     print(" epoch batch  step tr.sec  loss vl.sec tr.acc vl.acc vl.sec  tr.cmat vl.cmat")
+    sys.stdout.flush()
     for epoch in range(3):
         shuffle_data(training_X, training_Y)
         next_sample_idx = -minibatch_size
@@ -216,11 +215,12 @@ def train(train_files, validation_files, saved_model):
             msg = " %5d %5d %5d %6.1f" % \
                   (epoch, batch, step, train_time)
             print(msg)
-                
-def predict(predict_files, save_fname):
+            sys.stdout.flush()
+
+def predict(predict_files, saved_model):
     pass
 
-def with_graph(train_files, validation_files, predict_files, save_fname, cmd):
+def with_graph(train_files, validation_files, predict_files, saved_model, cmd):
     if cmd == 'train':
         train(train_files, validation_files, saved_model)
     elif cmd == 'predict':
@@ -232,6 +232,7 @@ if __name__ == '__main__':
     HELP = '''usage: %s cmd, where cmd is one or 'predict' or 'train'.''' % os.path.basename(__file__)
     assert len(sys.argv)==2, "no command given: %s" % HELP
     print("-- imports done, starting main --")
+    sys.stdout.flush()
     cmd = sys.argv[1].lower().strip()
     saved_model = 'tf_saved_model'
 

@@ -31,7 +31,8 @@ def train(train_files, validation_files, saved_model):
     batches_per_epoch = len(training_X)//minibatch_size
     print("-- read %d samples in %.2fsec. batch_size=%d, %d batches per epoch" %
           (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
-    
+    sys.stdout.flush()
+
     VALIDATION_SIZE = 80
     validation_X = validation_X[0:VALIDATION_SIZE]
     validation_Y = validation_Y[0:VALIDATION_SIZE]
@@ -81,8 +82,8 @@ def train(train_files, validation_files, saved_model):
     # get decimal places needed to format confusion matrix
     fmtLen = int(math.ceil(math.log(max(minibatch_size, VALIDATION_SIZE),10)))
 
-    best_acc = 0.0
     print(" epoch batch  step tr.sec  loss vl.sec tr.acc vl.acc vl.sec  tr.cmat vl.cmat")
+    sys.stdout.flush()
     for epoch in range(3):
         ex04.shuffle_data(training_X, training_Y)
         next_sample_idx = -minibatch_size
@@ -97,8 +98,8 @@ def train(train_files, validation_files, saved_model):
             train_loss, jnk = sess.run([loss, train_op], feed_dict=train_feed_dict)
             train_time = time.time()-t0
 
-            msg = " %5d %5d %5d %6.3f %6.1f" % \
-                  (epoch, batch, step, train_loss, train_time)
+            msg = " %5d %5d %5d %6.1f %6.3f" % \
+                  (epoch, batch, step, train_time, train_loss)
 
             if step % steps_between_validations == 0:
                 t0 = time.time()
@@ -106,10 +107,6 @@ def train(train_files, validation_files, saved_model):
                 valid_acc, cmat_valid_rows = get_acc_cmat_for_msg(sess, predict_op, validation_feed_dict, validation_Y, fmtLen)
                 valid_time = time.time()-t0
                 savemsg = ''
-                if valid_acc > best_acc:
-                    model.save_weights(save_fname, overwrite=True)
-                    best_acc = valid_acc
-                    savemsg = ' ** saved'
                 print('-'*80)
                 print('%s %6.1f %5.1f%% %5.1f%% %6.1f | %s | %s | %s' %
                       (msg, valid_time, train_acc*100.0, valid_acc*100.0, 
@@ -120,11 +117,13 @@ def train(train_files, validation_files, saved_model):
                                              cmat_valid_rows[row]))
             else:
                 print(msg)
+            sys.stdout.flush()
+
                 
-def predict(predict_files, save_fname):
+def predict(predict_files, saved_model):
     pass
 
-def with_graph(train_files, validation_files, predict_files, save_fname, cmd):
+def with_graph(train_files, validation_files, predict_files, saved_model, cmd):
     if cmd == 'train':
         train(train_files, validation_files, saved_model)
     elif cmd == 'predict':
@@ -136,6 +135,7 @@ if __name__ == '__main__':
     HELP = '''usage: %s cmd, where cmd is one or 'predict' or 'train'.''' % os.path.basename(__file__)
     assert len(sys.argv)==2, "no command given: %s" % HELP
     print("-- imports done, starting main --")
+    sys.stdout.flush()
     cmd = sys.argv[1].lower().strip()
     saved_model = 'tf_saved_model'
 

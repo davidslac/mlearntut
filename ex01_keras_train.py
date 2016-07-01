@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import sys
 import time
 import random
 import numpy as np
@@ -92,6 +93,7 @@ def shuffle_data(X,Y):
 
 if __name__ == '__main__':
     print("-- imports done, starting main --")
+    sys.stdout.flush()
     t0 = time.time()
     training_X, training_Y = readData([
         # 3 nolasing files
@@ -112,7 +114,8 @@ if __name__ == '__main__':
     batches_per_epoch = len(training_X)//minibatch_size
     print("-- read %d samples in %.2fsec. batch_size=%d, %d batches per epoch" %
           (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
-    
+    sys.stdout.flush()
+
     shuffle_data(validation_X, validation_Y)
     model = build_model()
     
@@ -134,4 +137,6 @@ if __name__ == '__main__':
             train_time = time.time()-t0
             print("epoch=%d batch=%d train_loss=%.3f train_step_time=%.2f" % 
                   (epoch, batch_number, train_loss, train_time))
+            sys.stdout.flush()
+
     # EXPLAIN: better to have minibatch size evenly divide number train samples
