@@ -150,6 +150,7 @@ def train(train_files, validation_files, saved_model):
     sys.stdout.flush()
 
     VALIDATION_SIZE = 80
+    shuffle_data(validation_X, validation_Y)
     validation_X = validation_X[0:VALIDATION_SIZE]
     validation_Y = validation_Y[0:VALIDATION_SIZE]
 

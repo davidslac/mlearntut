@@ -33,6 +33,7 @@ def train(train_files, validation_files, saved_model):
           (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
     sys.stdout.flush()
 
+    ex04.shuffle_data(validation_X, validation_Y)
     VALIDATION_SIZE = 80
     validation_X = validation_X[0:VALIDATION_SIZE]
     validation_Y = validation_Y[0:VALIDATION_SIZE]

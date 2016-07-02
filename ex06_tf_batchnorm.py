@@ -42,7 +42,8 @@ class SequentialModel(object):
         last_op = self.layers[-1]
         assert beta_init == 'zero', 'only do beta_init==0'
         assert gamma_init == 'one', 'only do gamma_init==1'
-        bn = BatchNormalization(last_op, eps, mode, axis, momentum, self.train_placeholder)
+        bn = BatchNormalization(inputTensor=last_op, eps=eps, mode=mode,
+                                axis=axis, momentum=momentum, train_placeholder=self.train_placeholder)
         op = bn.getOp()
         self.layers.append(op)
         self.names.append('batchnorm')
@@ -113,8 +114,9 @@ def train(train_files, validation_files, saved_model):
     batches_per_epoch = len(training_X)//minibatch_size
     print("-- read %d samples in %.2fsec. batch_size=%d, %d batches per epoch" %
           (len(training_X)+len(validation_X), read_time, minibatch_size, batches_per_epoch))
-    
+    sys.stdout.flush()
     VALIDATION_SIZE = 80
+    ex04.shuffle_data(validation_X, validation_Y)
     validation_X = validation_X[0:VALIDATION_SIZE]
     validation_Y = validation_Y[0:VALIDATION_SIZE]
 
@@ -148,10 +150,13 @@ def train(train_files, validation_files, saved_model):
     optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.9)
     train_op = optimizer.minimize(loss, global_step=global_step)
 
-    # EXPLAIN: tensor flow session, also a with way of doing it
     sess = tf.Session()#config=tf.ConfigProto(intra_op_parallelism_threads = 12))
 
     init = tf.initialize_all_variables()
+
+    # EXPLAIN: saving, create variables, create saver, then run init
+    saver = tf.train.Saver()
+    
     sess.run(init)
     
     validation_feed_dict = {img_placeholder:validation_X,
@@ -167,6 +172,7 @@ def train(train_files, validation_files, saved_model):
 
     best_acc = 0.0
     print(" epoch batch  step tr.sec  loss vl.sec tr.acc vl.acc vl.sec  tr.cmat vl.cmat")
+    sys.stdout.flush()
     for epoch in range(3):
         ex04.shuffle_data(training_X, training_Y)
         next_sample_idx = -minibatch_size
@@ -182,8 +188,8 @@ def train(train_files, validation_files, saved_model):
             train_loss, jnk = sess.run([loss, train_op], feed_dict=train_feed_dict)
             train_time = time.time()-t0
 
-            msg = " %5d %5d %5d %6.3f %6.1f" % \
-                  (epoch, batch, step, train_loss, train_time)
+            msg = " %5d %5d %5d %6.1f %6.3f" % \
+                  (epoch, batch, step, train_time, train_loss)
 
             if step % steps_between_validations == 0:
                 t0 = time.time()
@@ -192,9 +198,9 @@ def train(train_files, validation_files, saved_model):
                 valid_time = time.time()-t0
                 savemsg = ''
                 if valid_acc > best_acc:
-                    model.save_weights(saved_model, overwrite=True)
+                    save_path = saver.save(sess, saved_model)
                     best_acc = valid_acc
-                    savemsg = ' ** saved'
+                    savemsg = ' ** saved in %s' % save_path
                 print('-'*80)
                 print('%s %6.1f %5.1f%% %5.1f%% %6.1f | %s | %s | %s' %
                       (msg, valid_time, train_acc*100.0, valid_acc*100.0, 
@@ -205,9 +211,61 @@ def train(train_files, validation_files, saved_model):
                                              cmat_valid_rows[row]))
             else:
                 print(msg)
-                
+            sys.stdout.flush()
+            
 def predict(predict_files, saved_model):
-    pass
+    t0 = time.time()
+    numOutputs = 2
+
+    # EXPLAIN: normally no Y, or 'lasing' recorded for predicitons
+    Xall, Yall = ex04.readData(train_files, 'xtcavimg', 'lasing', 'tf', numOutputs)
+    read_time = time.time()-t0
+    minibatch_size = 64
+    print("-- read %d samples for prediction" % len(Xall))
+    sys.stdout.flush()
+
+    img_placeholder = tf.placeholder(tf.int16,
+                                     shape=(None,363,284,1),
+                                     name='img')
+    train_placeholder = tf.placeholder(tf.bool, name='trainflag')
+    
+    model = build_model(img_placeholder, train_placeholder, numOutputs=2)    
+    predict_op = tf.nn.softmax(model.final_logits)
+    
+    sess = tf.Session()#config=tf.ConfigProto(intra_op_parallelism_threads = 12))
+
+    init = tf.initialize_all_variables()
+
+    # EXPLAIN: saving, create variables, create saver, then run init
+    saver = tf.train.Saver()
+    
+    sess.run(init)
+
+    saver.restore(sess, saved_model)
+    print("restored model from %s" % saved_model)
+    sys.stdout.flush()
+
+    # get decimal places needed to format confusion matrix
+    fmtLen = int(math.ceil(math.log(minibatch_size,10)))
+
+    idx = -minibatch_size
+    Ypred = np.zeros(Yall.shape, dtype=np.float32)
+    while idx + minibatch_size < len(Xall):
+        idx += minibatch_size
+        X=Xall[idx:(idx+minibatch_size)]
+        Y=Yall[idx:(idx+minibatch_size)]
+        # EXPLAIN: new feed dict for prediction
+        feed_dict={img_placeholder:X,
+                   train_placeholder:False}
+        Ypred[idx:(idx+minibatch_size)] = sess.run(predict_op, feed_dict=feed_dict)
+
+    cmat = ex02.get_confusion_matrix_one_hot(Ypred, Yall)
+
+    acc, cmat_rows = ex02.get_acc_cmat_for_msg_from_cmat(cmat, 3)
+    print("Ran predictions. Accuracy: %.2f %d samples" % (acc, len(Ypred)))
+    for row in cmat_rows:
+        print(row)
+    sys.stdout.flush()
 
 def with_graph(train_files, validation_files, predict_files, saved_model, cmd):
     if cmd == 'train':
@@ -225,23 +283,23 @@ if __name__ == '__main__':
     saved_model = 'tf_saved_model'
 
     train_files = [
-        # 3 nolasing files
+        # nolasing files
         'amo86815_mlearn-r069-c0011.h5',
-#        'amo86815_mlearn-r069-c0012.h5',
-#        'amo86815_mlearn-r069-c0013.h5',
-#        'amo86815_mlearn-r069-c0016.h5',
-#        'amo86815_mlearn-r069-c0018.h5',
-        # 3 lasing files
-#        'amo86815_mlearn-r070-c0009.h5',
-#        'amo86815_mlearn-r070-c0014.h5',
-#        'amo86815_mlearn-r070-c0016.h5',
-#        'amo86815_mlearn-r070-c0017.h5',
+        'amo86815_mlearn-r069-c0012.h5',
+        'amo86815_mlearn-r069-c0013.h5',
+        'amo86815_mlearn-r069-c0016.h5',
+        'amo86815_mlearn-r069-c0018.h5',
+        # lasing files
+        'amo86815_mlearn-r070-c0009.h5',
+        'amo86815_mlearn-r070-c0014.h5',
+        'amo86815_mlearn-r070-c0016.h5',
+        'amo86815_mlearn-r070-c0017.h5',
         'amo86815_mlearn-r070-c0019.h5']
 
     validation_files = [
-        # 1 nolasing files
+        # nolasing files
         'amo86815_mlearn-r069-c0031.h5',
-        # 1 lasing files
+        # lasing files
         'amo86815_mlearn-r070-c0049.h5']
 
     predict_files = ['amo86815_pred-r073-c0121.h5']
