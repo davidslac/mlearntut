@@ -49,8 +49,15 @@ class SequentialModel(object):
         self.names.append('batchnorm')
         self.batch_norms.append(bn)
         return op
-        
 
+    def getTrainOps(self):
+        ops = []
+        for bn in self.batch_norms:
+            if bn is None:
+                continue
+            ops.extend(bn.getTrainOps())
+        return ops
+                
 def build_model(img_placeholder, train_placeholder, numOutputs):
 
     model = SequentialModel(img_placeholder, train_placeholder, numOutputs)
@@ -170,6 +177,7 @@ def train(train_files, validation_files, saved_model):
     # get decimal places needed to format confusion matrix
     fmtLen = int(math.ceil(math.log(max(minibatch_size, VALIDATION_SIZE),10)))
 
+    train_ops = [loss, train_op] + model.getTrainOps()
     best_acc = 0.0
     print(" epoch batch  step tr.sec  loss vl.sec tr.acc vl.acc vl.sec  tr.cmat vl.cmat")
     sys.stdout.flush()
@@ -185,7 +193,8 @@ def train(train_files, validation_files, saved_model):
                                labels_placeholder:Y,
                                train_placeholder:True}
             t0 = time.time()
-            train_loss, jnk = sess.run([loss, train_op], feed_dict=train_feed_dict)
+            ndarr_train_ops = sess.run(train_ops, feed_dict=train_feed_dict)
+            train_loss = ndarr_train_ops[0]
             train_time = time.time()-t0
 
             msg = " %5d %5d %5d %6.1f %6.3f" % \
