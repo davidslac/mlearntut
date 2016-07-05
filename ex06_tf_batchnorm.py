@@ -95,13 +95,13 @@ def build_model(img_placeholder, train_placeholder, numOutputs):
     weights = tf.Variable(tf.truncated_normal([num_conv_outputs, 40], mean=0.0, stddev=0.03))
     xw = model.add(tf.matmul(conv_outputs, weights), var_to_reg=weights)
     batch = model.add_batch_norm(eps=1e-06, mode=1, momentum=0.9, beta_init='zero',  gamma_init='one')
-    nonlinear = tf.nn.relu(batch)
+    nonlinear = model.add(op=tf.nn.relu(batch))
 
     # layer 4
     weights = tf.Variable(tf.truncated_normal([40, 10], mean=0.0, stddev=0.03))
     xw = model.add(tf.matmul(nonlinear, weights), var_to_reg=weights)
     batch = model.add_batch_norm(eps=1e-06, mode=1, momentum=0.9, beta_init='zero',  gamma_init='one')
-    nonlinear = tf.nn.relu(batch)
+    nonlinear = model.add(op=tf.nn.relu(batch))
 
     # final layer, logits
     weights = tf.Variable(tf.truncated_normal([10, numOutputs], mean=0.0, stddev=0.03))
@@ -227,7 +227,7 @@ def predict(predict_files, saved_model):
     numOutputs = 2
 
     # EXPLAIN: normally no Y, or 'lasing' recorded for predicitons
-    Xall, Yall = ex04.readData(train_files, 'xtcavimg', 'lasing', 'tf', numOutputs)
+    Xall, Yall = ex04.readData(predict_files, 'xtcavimg', 'lasing', 'tf', numOutputs)
     read_time = time.time()-t0
     minibatch_size = 64
     print("-- read %d samples for prediction" % len(Xall))
@@ -311,7 +311,10 @@ if __name__ == '__main__':
         # lasing files
         'amo86815_mlearn-r070-c0049.h5']
 
-    predict_files = ['amo86815_pred-r073-c0121.h5']
+    predict_files = ['amo86815_pred-r073-c0121.h5',
+                     'amo86815_pred-r072-c0030.h5',
+                     'amo86815_mlearn-r071-c0010.h5',
+                     'amo86815_mlearn-r069-c0000.h5']
 
     with tf.Graph().as_default():
         with_graph(train_files, validation_files, predict_files, saved_model, cmd)

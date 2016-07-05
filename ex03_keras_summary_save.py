@@ -120,7 +120,7 @@ if __name__ == '__main__':
     assert len(sys.argv)==2, "no command given: %s" % HELP
     print("-- imports done, starting main --")
     cmd = sys.argv[1].lower().strip()
-    saved_model = 'saved_model.h5'
+    saved_model = 'keras_saved_model.h5'
     train_files = [
         # 3 nolasing files
         'amo86815_mlearn-r069-c0011.h5',

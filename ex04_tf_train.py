@@ -112,13 +112,13 @@ def build_model(img_placeholder, numOutputs):
     weights = tf.Variable(tf.truncated_normal([num_conv_outputs, 40], mean=0.0, stddev=0.03))
     bias = tf.Variable(tf.constant(value=0.0, dtype=tf.float32, shape=[40]))
     xw_plus_b = model.add(tf.nn.xw_plus_b(conv_outputs, weights, bias), var_to_reg=weights)
-    nonlinear = tf.nn.relu(xw_plus_b)
+    nonlinear = model.add(op=tf.nn.relu(xw_plus_b))
 
     # layer 4
     weights = tf.Variable(tf.truncated_normal([40, 10], mean=0.0, stddev=0.03))
     bias = tf.Variable(tf.constant(value=0.0, dtype=tf.float32, shape=[10]))
     xw_plus_b = model.add(tf.nn.xw_plus_b(nonlinear, weights, bias), var_to_reg=weights)
-    nonlinear = tf.nn.relu(xw_plus_b)
+    nonlinear = model.add(op=tf.nn.relu(xw_plus_b))
 
     # final layer, logits
     weights = tf.Variable(tf.truncated_normal([10, numOutputs], mean=0.0, stddev=0.03))
