@@ -19,6 +19,41 @@ def convert_to_one_hot(labels, numLabels):
 
 DATADIR = os.environ.get('DATADIR','/reg/d/ana01/temp/davidsch/ImgMLearnSmall')
 
+def readData(files,
+             Xdataset='xtcavimg',
+             Ydataset='lasing',
+             add_channel='tf',
+             Y_onehot_numoutputs=None,
+             datadir=DATADIR):
+    X = []
+    Y = []
+    
+    for fname in files:
+        full_fname = os.path.join(datadir, fname)
+        assert os.path.exists(full_fname), "path %s doesn't exist" % full_fname
+        h5 = h5py.File(full_fname,'r')
+        X.append(h5[Xdataset][:])
+        if Ydataset:
+            Y.append(h5[Ydataset][:])
+            
+    X_all = np.concatenate(X)
+    nsamples, nrows, ncols = X_all.shape
+    nchannels = 1
+    if add_channel == 'theano':
+        X_all.resize((nsamples, nchannels, nrows, ncols))
+    elif add_channel == 'tf':
+        X_all.resize((nsamples,nrows, ncols,nchannels))
+    elif add_channel not in ['',None]:
+        raise Exception("add_channel must be 'tf' or 'theano' or None")
+
+    if not Ydataset:
+        return X_all
+    
+    Y_all = np.concatenate(Y)
+    if Y_onehot_numoutputs:
+        Y_all = convert_to_one_hot(Y_all, Y_onehot_numoutputs)
+    return X_all, Y_all
+
 def read2ColorPredictData():
     validation_files = []
     for run in [70,71]:

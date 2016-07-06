@@ -83,7 +83,7 @@ def train(saved_model, trainData=None):
     best_acc = 0.0
     print(" epoch batch  step tr.sec  mloss  oloss vl.sec tr.acc vl.acc vl.sec  tr.cmat vl.cmat")
     sys.stdout.flush()
-    for epoch in range(7):
+    for epoch in range(4):
         util.shuffle_data(training_X, training_Y)
         next_sample_idx = -minibatch_size
         for batch in range(batches_per_epoch):
@@ -208,6 +208,7 @@ def guided_backprop(saved_model):
     sys.stdout.flush()
 
     guided = True  # set to False to see deriv w.r.t image
+    no_colorbar_yet = True
     for idx in range(len(Xall)):
         X=Xall[idx:idx+1]
         Y=Yall[idx:idx+1]
@@ -227,6 +228,9 @@ def guided_backprop(saved_model):
 
         plt.subplot(1,2,2)
         plt.imshow(backprop_img_predicted_label, interpolation='none', origin='lower')
+        if no_colorbar_yet:
+            plt.colorbar()
+            no_colorbar_yet = False
         plt.title("guided backprop on predicted label")
         plt.pause(.1)
         if 'q' == raw_input("hit enter for next plot, or q to quit").lower():

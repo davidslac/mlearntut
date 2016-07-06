@@ -221,13 +221,15 @@ def guided_backprop(predict_files, saved_model):
         backprop_img_predicted_label = model.guided_back_prop(sess, X, class_pred)[:,:,0]
                 
         plt.subplot(1,2,1)
-        plt.imshow(X[0,:,:,0], interpolation='none')
+        plt.imshow(X[0,:,:,0], interpolation='none', origin='lower')
         truth=0
         if Y[0,1]: truth=1
         plt.title('raw img %d. pred=%.2f %.2f truth=%d' % (idx, Ypred[0,0], Ypred[0,1], truth))
 
         plt.subplot(1,2,2)
-        plt.imshow(backprop_img_predicted_label, interpolation='none')
+        plt.imshow(backprop_img_predicted_label, interpolation='none', origin='lower')
+        if idx == 0:
+            plt.colorbar()
         plt.title("guided backprop on predicted label")
         plt.pause(.1)
         
