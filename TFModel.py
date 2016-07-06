@@ -2,9 +2,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import tensorflow as tf
 from BatchNormalization import BatchNormalization
 
+###############
 class SequentialModel(object):
     def __init__(self, img_placeholder, train_placeholder, numOutputs, regFn='L2', regWeight=None):
         self.img_placeholder = img_placeholder
@@ -107,51 +109,85 @@ class SequentialModel(object):
     def getOptLoss(self):
         return self.optimizer_loss
 
-    def guided_back_prop(self, sess, image, label):
+    def guided_back_prop(self, sess, image, label, do_guided=True):
         assert hasattr(self, 'final_logits'), "don't know tensor to back prop from"
         assert image.shape[0]==1, "presently only do guided backprop on batch of size 1"
-        assert label >= 0 and label < self.numOutputs, "label=%r must be in [0,%d)" % (label, self.numOutputs)
+        assert label >= 0 and label < self.numOutputs, \
+            "label=%r must be in [0,%d)" % (label, self.numOutputs)
         assert self.names[0].find('img_float')>=0, 'first layer op is not type cast to float'
-        img_tensor = self.layers[0]
-        
-        assert len(relus)>0, "There are no relu's in the layers."
-        
+
+        feed_dict = {self.img_placeholder:image,
+                     self.train_placeholder:False}
+
         # start with activation that led to picking the final score
-        tensor_above = self.final_logits[0,label]
-        tensor_below = relus.pop()
+        ys = self.final_logits[0,label]
+        ys_name = 'final'
+        grad_ys = np.ones([1], dtype=np.float32)
 
-        # take derivative w.r.t relu that preceded it
-        deriv_tensor_above_wrt_below = tf.gradients(tensor_above, tensor_below)
-        deriv_arr_above_wrt_below = sess.run(deriv_tensor_above_wrt_below,
-                                             feed_dict={self.img_placeholder:image,
-                                                        self.train_placeholder:False})[0]
-        # guided part - keep only positive values in derivative
-        deriv_arr_above_wrt_below[deriv_arr_above_wrt_below<0]=0
+        # There is some currently bug with my batch normalization, for some
+        # reason derivatives of batch outputs with respect to the layer below are
+        # turning into nan's, but only if it is batch over a dense layer, it is
+        # fine for the covnets, something about the shape maybe? 
 
-        # loop through remaining relus, do the same except also evaluate new deriviates
-        # at the guided values, with zero-ed out activations
-        while len(relus):
-            tensor_above = tensor_below
-            tensor_below = relus.pop()
-            deriv_tensor_above_wrt_below = tf.gradients(tensor_above, tensor_below,
-                                                        deriv_arr_above_wrt_below)
-            deriv_arr_above_wrt_below = sess.run(deriv_tensor_above_wrt_below,
-                                                 feed_dict={self.img_placeholder:image,
-                                                            self.train_placeholder:False})[0]
-            deriv_arr_above_wrt_below[deriv_arr_above_wrt_below<0]=0
+        # to workaround, if we see nan's for such a layer, we throw away the
+        # nan gradients and just use the previous gradient
+        for xIdx in range(len(self.layers)-1,-1,-1):
+            xs = self.layers[xIdx]
+            xs_name = self.names[xIdx]
+            grad_ys_wrt_xs = tf.gradients(ys, xs, grad_ys)            
+            new_grad_ys = sess.run(grad_ys_wrt_xs, feed_dict=feed_dict)[0]
+            if np.any(np.isnan(new_grad_ys)):
+                assert new_grad_ys.shape==grad_ys.shape, \
+                    ("nan's showing up in gradient for layer xIdx=%d,"+ \
+                    "ys_name=%s xs_name=%s, new_shape=%s != old_shape=%s") % \
+                    (xIdx, ys_name, xs_name, new_grad_ys.shape, grad_ys.shape)
+            else:
+                grad_ys = new_grad_ys
+            # guided part:
+            if do_guided and ys_name.lower().find('relu')>=0:
+                # 'Striving for Simplicity' paper 
+                # http://arxiv.org/pdf/1412.6806v3.pdf
+                # says that for guided backprop,
+                # for relu, mask out values for either of these cases:
+                # * negative values in the top gradient 
+                #   (derivate with w.r.t. x when y=relu?)
+                # * negative values of the bottom 
+                #   (when the x, going into the relu is < 0?) 
+                grad_ys[grad_ys<0]=0.0
+                # should we do this also?
+                xarr = sess.run(xs, feed_dict=feed_dict)
+                grad_ys[xarr<0]=0.0
+            ys = xs
+            ys_name = xs_name
+        return grad_ys[0]
 
-        # one last final deriviate - the input -
-        first_relu_after_image = tensor_below
-        guided_deriv_of_score_logit_wrt_image = tf.gradients(first_relu_after_image,
-                                                             img_tensor,
-                                                             deriv_arr_above_wrt_below)
-        guided_backprop_arr = sess.run(guided_deriv_of_score_logit_wrt_image,
-                                       feed_dict={self.img_placeholder:image,
-                                                  self.train_placeholder:False})[0]
-        import IPython
-        IPython.embed()
-        1/0
-        return guided_backprop_arr[0]
+    def _guided_back_prop(self, sess, image, label):
+        # this is the guided back prop we would like to use, if not for the
+        # batchnorm bug
+        assert hasattr(self, 'final_logits'), "don't know tensor to back prop from"
+        assert image.shape[0]==1, "presently only do guided backprop on batch of size 1"
+        assert label >= 0 and label < self.numOutputs, \
+            "label=%r must be in [0,%d)" % (label, self.numOutputs)
+        assert self.names[0].find('img_float')>=0, 'first layer op is not type cast to float'
+
+        feed_dict = {self.img_placeholder:image,
+                     self.train_placeholder:False}
+
+        # start with activation that led to picking the final score
+        ys = self.final_logits[0,label]
+        grad_ys = np.ones([1], dtype=np.float32)
+        relus = [op for op,nm in zip(self.layers, self.names) \
+                 if nm.lower().find('relu')>=0]
+        assert self.names[0].find('img_float')>=0, 'expected typecast to img float for first layer, it is %s' % self.names[0]
+        op_list = [self.layers[0]] + relus
+        while len(op_list):
+            xs = op_list.pop()
+            grad_ys_wrt_xs = tf.gradients(ys, xs, grad_ys)
+            grad_ys = sess.run(grad_ys_wrt_xs, feed_dict=feed_dict)[0]
+            grad_ys[grad_ys<0]=0.0
+            # but do we need to also 0 out based on what is below?
+            ys = xs
+        return grad_ys[0]
         
 def build_model(img_placeholder, train_placeholder, numOutputs):
 
