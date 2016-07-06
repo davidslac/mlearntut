@@ -1,6 +1,12 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
+import glob
 import numpy as np
 import h5py
+import random
 
 def convert_to_one_hot(labels, numLabels):
     labelsOneHot = np.zeros((len(labels), numLabels), dtype=np.int32)
@@ -13,22 +19,68 @@ def convert_to_one_hot(labels, numLabels):
 
 DATADIR = os.environ.get('DATADIR','/reg/d/ana01/temp/davidsch/ImgMLearnSmall')
 
-def readData(files,
-             Xdataset='xtcavimg',
-             Ydataset='lasing',
-             add_channel='tf',
-             Y_onehot_numoutputs=None,
-             datadir=DATADIR):
+def read2ColorPredictData():
+    validation_files = []
+    for run in [70,71]:
+        runfiles = glob.glob(os.path.join(DATADIR, 'amo86815_mlearn-r0%d*.h5' % run))
+        assert len(runfiles)>0, "no run files found for run=%d, is DATADIR=%s visible?" % (run, DATADIR)
+        runfiles.sort()
+        validation_files.append(runfiles.pop(0))
+
+    numOutputs = 4
+
+    Xvalid, Yvalid = read2ColorTrainLabelDataFromFiles(validation_files, 
+                                                       Xdataset='xtcavimg', 
+                                                       Ydataset='acq.enPeaksLabel',
+                                                       filter_Y_negone=True,
+                                                       add_channel='tf',
+                                                       to_one_hot=numOutputs)
+    
+    return numOutputs, Xvalid, Yvalid
+    
+def read2ColorLabelData(mode):
+    assert mode in ['all', 'test'], "make mode 'test' or 'all', test is small read"
+    validation_files = []
+    train_files = []
+    for run in [70,71]:
+        runfiles = glob.glob(os.path.join(DATADIR, 'amo86815_mlearn-r0%d*.h5' % run))
+        assert len(runfiles)>0, "no run files found for run=%d, is DATADIR=%s visible?" % (run, DATADIR)
+        runfiles.sort()
+        validation_files.append(runfiles.pop(0))
+        if mode == 'test':
+            train_files.extend(runfiles[0:1])
+        else:
+            train_files.extend(runfiles[0:])
+
+    numOutputs = 4
+
+    Xtrain, Ytrain = read2ColorTrainLabelDataFromFiles(train_files, 
+                                                       Xdataset='xtcavimg', 
+                                                       Ydataset='acq.enPeaksLabel',
+                                                       filter_Y_negone=True,
+                                                       add_channel='tf',
+                                                       to_one_hot=numOutputs)
+    
+    Xvalid, Yvalid = read2ColorTrainLabelDataFromFiles(validation_files, 
+                                                       Xdataset='xtcavimg', 
+                                                       Ydataset='acq.enPeaksLabel',
+                                                       filter_Y_negone=True,
+                                                       add_channel='tf',
+                                                       to_one_hot=numOutputs)
+    
+    return numOutputs, Xtrain, Ytrain, Xvalid, Yvalid
+
+def read2ColorTrainLabelDataFromFiles(files, Xdataset, Ydataset, filter_Y_negone=True, add_channel='tf', to_one_hot=None):
     X = []
     Y = []
-    
     for fname in files:
-        full_fname = os.path.join(datadir, fname)
-        assert os.path.exists(full_fname), "path %s doesn't exist" % full_fname
-        h5 = h5py.File(full_fname,'r')
-        X.append(h5[Xdataset][:])
-        if Ydataset:
-            Y.append(h5[Ydataset][:])
+        h5 = h5py.File(fname,'r')
+        currX = h5[Xdataset][:]
+        currY = h5[Ydataset][:]
+        if filter_Y_negone:
+            goodRows = currY != -1
+            X.append(currX[goodRows])
+            Y.append(currY[goodRows])
             
     X_all = np.concatenate(X)
     nsamples, nrows, ncols = X_all.shape
@@ -36,16 +88,13 @@ def readData(files,
     if add_channel == 'theano':
         X_all.resize((nsamples, nchannels, nrows, ncols))
     elif add_channel == 'tf':
-        X_all.resize((nsamples,nrows, ncols,nchannels))
+        X_all.resize((nsamples,nrows, ncols, nchannels))
     elif add_channel not in ['',None]:
         raise Exception("add_channel must be 'tf' or 'theano' or None")
 
-    if not Ydataset:
-        return X_all
-    
     Y_all = np.concatenate(Y)
-    if Y_onehot_numoutputs:
-        Y_all = convert_to_one_hot(Y_all, Y_onehot_numoutputs)
+    if to_one_hot:
+        Y_all = convert_to_one_hot(Y_all, to_one_hot)
     return X_all, Y_all
 
 def shuffle_data(X,Y):
@@ -80,7 +129,15 @@ def get_acc_cmat_for_msg(model, X, Y, fmtLen):
     confusion_matrix = get_confusion_matrix_one_hot(predict, Y)
     return get_acc_cmat_for_msg_from_cmat(confusion_matrix, fmtLen)
     
+def get_acc_cmat_for_msg_from_cmat(confusion_matrix, fmtLen):
+    accuracy = np.trace(confusion_matrix)/float(np.sum(confusion_matrix))
+    fmtstr = '%' + str(fmtLen) + 'd'
+    cmat_rows = []
+    for row in range(confusion_matrix.shape[0]):
+        cmat_rows.append(' '.join(map(lambda x: fmtstr % x, confusion_matrix[row,:])))
+    return accuracy, cmat_rows
+
 def get_acc_cmat_for_msg(sess, predict_op, feed_dict, Y, fmtLen):
     predict = sess.run(predict_op, feed_dict=feed_dict)
-    confusion_matrix = ex02.get_confusion_matrix_one_hot(predict, Y)
-    return ex02.get_acc_cmat_for_msg_from_cmat(confusion_matrix, fmtLen)
+    confusion_matrix = get_confusion_matrix_one_hot(predict, Y)
+    return get_acc_cmat_for_msg_from_cmat(confusion_matrix, fmtLen)
