@@ -290,12 +290,12 @@ def build_2color_model(img_placeholder, train_placeholder, numOutputs):
     num_conv_outputs = 1
     for dim in pool.get_shape()[1:].as_list():
         num_conv_outputs *= dim
-    conv_outputs = tf.reshape(pool, [-1, num_conv_outputs])
-
+    model.conv_outputs = tf.reshape(pool, [-1, num_conv_outputs])
+    
     ## layer 4
     hidden04 = 48
     weights = tf.Variable(tf.truncated_normal([num_conv_outputs, hidden04], mean=0.0, stddev=0.03))
-    xw = model.add(tf.matmul(conv_outputs, weights), var_to_reg=weights)
+    xw = model.add(tf.matmul(model.conv_outputs, weights), var_to_reg=weights)
     batch = model.add_batch_norm(eps=1e-06, mode=1, momentum=0.9)
     relu = model.add(op=tf.nn.relu(batch))
 
