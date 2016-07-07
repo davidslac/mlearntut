@@ -124,7 +124,6 @@ def train(saved_model, trainData=None):
                 t0 = time.time()
                 train_acc, cmat_train_rows = util.get_acc_cmat_for_msg(sess, predict_op, train_feed_dict, Y, fmtLen)
                 valid_acc, cmat_valid_rows = util.get_acc_cmat_for_msg(sess, predict_op, validation_feed_dict, validation_Y, fmtLen)
-                print(valid_acc)
                 valid_time = time.time()-t0
                 savemsg = ''
                 if valid_acc > best_acc:
@@ -141,8 +140,8 @@ def train(saved_model, trainData=None):
                                              cmat_valid_rows[row]))
             else:
                 print(msg)
+            sys.stdout.flush()
 
-    sys.stdout.flush()
     save_path = saver.save(sess, saved_model + '_final')
     print(' ** saved final model in %s' % save_path)
             

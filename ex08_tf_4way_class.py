@@ -123,6 +123,7 @@ def train(saved_model, trainData=None):
                                              cmat_valid_rows[row]))
             else:
                 print(msg)
+            sys.stdout.flush()
 
     sys.stdout.flush()
     save_path = saver.save(sess, saved_model + '_final')
