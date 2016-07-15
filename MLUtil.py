@@ -73,7 +73,7 @@ def read2ColorPredictData():
     
     return numOutputs, Xvalid, Yvalid
     
-def read2ColorLabelData(mode):
+def readRegressionForLabel3(mode):
     assert mode in ['all', 'test'], "make mode 'test' or 'all', test is small read"
     validation_files = []
     train_files = []
@@ -87,49 +87,34 @@ def read2ColorLabelData(mode):
         else:
             train_files.extend(runfiles[0:])
 
-    numOutputs = 4
+    numOutputs = 2
 
-    Xtrain, Ytrain = read2ColorTrainLabelDataFromFiles(train_files, 
-                                                       Xdataset='xtcavimg', 
-                                                       Ydataset='acq.enPeaksLabel',
-                                                       filter_Y_negone=True,
-                                                       add_channel='tf',
-                                                       to_one_hot=numOutputs)
-    
-    Xvalid, Yvalid = read2ColorTrainLabelDataFromFiles(validation_files, 
-                                                       Xdataset='xtcavimg', 
-                                                       Ydataset='acq.enPeaksLabel',
-                                                       filter_Y_negone=True,
-                                                       add_channel='tf',
-                                                       to_one_hot=numOutputs)
+    Xtrain, Ytrain = readRegressionFromFiles(train_files)
+    Xvalid, Yvalid = readRegressionFromFiles(validation_files) 
     
     return numOutputs, Xtrain, Ytrain, Xvalid, Yvalid
 
-def read2ColorTrainLabelDataFromFiles(files, Xdataset, Ydataset, filter_Y_negone=True, add_channel='tf', to_one_hot=None):
+def readRegressionFromFiles(files):
     X = []
     Y = []
     for fname in files:
         h5 = h5py.File(fname,'r')
-        currX = h5[Xdataset][:]
-        currY = h5[Ydataset][:]
-        if filter_Y_negone:
-            goodRows = currY != -1
-            X.append(currX[goodRows])
-            Y.append(currY[goodRows])
+        currX = h5['xtcavimg'][:]
+        e1pos = h5['acq.e1.pos'][:]
+        e2pos = h5['acq.e2.pos'][:]
+        peaksLabel = h5['acq.enPeaksLabel'][:]
+        where3 = peaksLabel == 3
+        e1pos = e1pos[where3]
+        e2pos = e2pos[where3]
+        X.append(currX[where3])
+        Y.append(np.transpose(np.vstack((e1pos, e2pos))))
             
     X_all = np.concatenate(X)
     nsamples, nrows, ncols = X_all.shape
     nchannels = 1
-    if add_channel == 'theano':
-        X_all.resize((nsamples, nchannels, nrows, ncols))
-    elif add_channel == 'tf':
-        X_all.resize((nsamples,nrows, ncols, nchannels))
-    elif add_channel not in ['',None]:
-        raise Exception("add_channel must be 'tf' or 'theano' or None")
+    X_all.resize((nsamples,nrows, ncols, nchannels))
 
     Y_all = np.concatenate(Y)
-    if to_one_hot:
-        Y_all = convert_to_one_hot(Y_all, to_one_hot)
     return X_all, Y_all
 
 def shuffle_data(X,Y):

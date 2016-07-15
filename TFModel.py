@@ -82,11 +82,9 @@ class SequentialModel(object):
                                                     decay_rate=0.96,
                                                     staircase=True):
 
-        cross_entropy_loss_all = tf.nn.softmax_cross_entropy_with_logits(self.final_logits,
-                                                                              labels_placeholder)
-        cross_entropy_loss = tf.reduce_mean(cross_entropy_loss_all)
-        
-        self.model_loss = cross_entropy_loss
+        diff = tf.sub(self.final_logits, labels_placeholder)
+        self.model_loss = tf.reduce_mean(diff * diff)
+
         self.optimizer_loss = self.model_loss
         if self.regTerm is not None:
             self.optimizer_loss += self.regTerm
@@ -242,7 +240,7 @@ def build_model(img_placeholder, train_placeholder, numOutputs):
     model.final_logits = xw_plus_b
     return model
 
-def build_2color_model(img_placeholder, train_placeholder, numOutputs):
+def build_regression_model(img_placeholder, train_placeholder, numOutputs):
     regWeight = 0.01
     model = SequentialModel(img_placeholder, train_placeholder, numOutputs, regWeight=regWeight)
     img_float = model.add(op=tf.to_float(img_placeholder, name='img_float'))
