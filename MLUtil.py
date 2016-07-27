@@ -8,6 +8,7 @@ import numpy as np
 import h5py
 import random
 
+#job to make a function that cals the R2
 def convert_to_one_hot(labels, numLabels):
     labelsOneHot = np.zeros((len(labels), numLabels), dtype=np.int32)
     for label in range(numLabels):
@@ -94,28 +95,33 @@ def readRegressionForLabel3(mode):
     
     return numOutputs, Xtrain, Ytrain, Xvalid, Yvalid
 
+######### Revised code - Friday
 def readRegressionFromFiles(files):
-    X = []
-    Y = []
-    for fname in files:
-        h5 = h5py.File(fname,'r')
-        currX = h5['xtcavimg'][:]
-        e1pos = h5['acq.e1.pos'][:]
-        e2pos = h5['acq.e2.pos'][:]
-        peaksLabel = h5['acq.enPeaksLabel'][:]
-        where3 = peaksLabel == 3
-        e1pos = e1pos[where3]
-        e2pos = e2pos[where3]
-        X.append(currX[where3])
-        Y.append(np.transpose(np.vstack((e1pos, e2pos))))
-            
-    X_all = np.concatenate(X)
-    nsamples, nrows, ncols = X_all.shape
-    nchannels = 1
-    X_all.resize((nsamples,nrows, ncols, nchannels))
+     X = []
+     Y = []
+     for fname in files:
+         h5 = h5py.File(fname,'r')
+         currX = h5['xtcavimg'][:]
+         e1pos = h5['acq.e1.pos'][:]
+         e2pos = h5['acq.e2.pos'][:]
+         peaksLabel = h5['acq.enPeaksLabel'][:]
+         where3 = peaksLabel == 3
+         e1pos = e1pos[where3]
+         e2pos = e2pos[where3]
+         X.append(currX[where3])
+         Y.append(np.transpose(np.vstack((e1pos, e2pos))))
 
-    Y_all = np.concatenate(Y)
-    return X_all, Y_all
+     X_all = np.concatenate(X)
+     nsamples, nrows, ncols = X_all.shape
+     nchannels = 1
+     X_all.resize((nsamples,nrows, ncols, nchannels))
+
+     Y_all = np.concatenate(Y)
+     #this line
+     print(np.mean(Y_all, axis=0))
+     return X_all, Y_all
+
+#######
 
 def shuffle_data(X,Y):
     npseed = int((1<<31)*random.random())
