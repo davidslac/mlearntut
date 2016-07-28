@@ -1,0 +1,2 @@
+model_checkpoint_path: "tf_saved_2color_model_final"
+all_model_checkpoint_paths: "tf_saved_2color_model_final"

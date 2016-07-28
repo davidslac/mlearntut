@@ -76,10 +76,13 @@ def train(saved_model, trainData=None):
 
     step = -1
     steps_between_validations = 10
-
-    train_ops = [model.getModelLoss(), model.getOptLoss(), train_op] + model.getTrainOps()
+    
+    ### Updated code
+    train_ops = [model.getModelLoss(), model.getOptLoss(), model.final_logits, train_op] + \
+                 model.getTrainOps()
     best_acc = 0.0
-    print(" epoch batch  step tr.sec  mloss  oloss vl.sec tr.acc vl.acc vl.sec  tr.cmat vl.cmat")
+   
+    print(" epoch batch  step tr.sec  mloss  oloss  tr.e1.r2  tr.e2.r2  vl.e1.r2  vl.e2.r2")
     sys.stdout.flush()
     for epoch in range(4):
         util.shuffle_data(training_X, training_Y)
@@ -90,22 +93,54 @@ def train(saved_model, trainData=None):
             X=training_X[next_sample_idx:(next_sample_idx+minibatch_size),:]
             Y=training_Y[next_sample_idx:(next_sample_idx+minibatch_size),:]
             train_feed_dict = {img_placeholder:X,
-                               labels_placeholder:Y,
-                               train_placeholder:True}
+                                labels_placeholder:Y,
+                                train_placeholder:True}
             t0 = time.time()
             ndarr_train_ops = sess.run(train_ops, feed_dict=train_feed_dict)
-            model_loss, opt_loss = ndarr_train_ops[0:2]
+            model_loss, opt_loss, predicted = ndarr_train_ops[0:3]
+
+            e1_r2_train = r2score(predicted[:,0], Y[:,0], 4.46465921)
+            e2_r2_train = r2score(predicted[:,1], Y[:,1], 3.1017437)
+
             train_time = time.time()-t0
 
-            msg = " %5d %5d %5d %6.1f %6.3f %6.3f" % \
-                  (epoch, batch, step, train_time, model_loss, opt_loss)
+            msg = " %5d %5d %5d %6.1f %6.3f %6.3f %6.2f %6.2f " % \
+                   (epoch, batch, step, train_time, model_loss, 
+                    opt_loss, e1_r2_train, e2_r2_train)
             print(msg)
             sys.stdout.flush()
 
     sys.stdout.flush()
     save_path = saver.save(sess, saved_model + '_final')
     print(' ** saved final model in %s' % save_path)
-            
+
+#End of updated code
+
+#New code updates
+def r2score(preYL, realYL, meanPos):
+    realMean = np.mean(realYL)
+    #print(realMean)
+    preYL = np.array(preYL)
+    #print(preYL[0])
+    realYL = np.array(realYL)
+    #print(realYL[0])
+    u = (realYL-preYL)**2
+    u = sum(u)
+    #print('this is u ',u)
+    v = (realYL - meanPos)**2 # you have to use meanPos not realMean
+    v = sum(v)
+    #print('this is v ', v)
+    #print('u/v ', u/v)
+    return 1-(u/v) # this is supposed to be 1
+    #score(preYL, realYL)
+    # there is something wrong with this line I think????
+    #regr = linear_model.LinearRegression()
+    #if len(preYL) == len(realYL):
+    #    regr.fit(preYL, realYL)
+    #    return regr.score(preYL, realYL)
+    #else:
+    #    #print 'not smae length'
+    #    return 0
 
 def with_graph(saved_model, cmd):
     if cmd == 'train':
