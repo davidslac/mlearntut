@@ -127,7 +127,7 @@ def r2score(preYL, realYL, meanPos):
     u = (realYL-preYL)**2
     u = sum(u)
     #print('this is u ',u)
-    v = (realYL - realMean)**2
+    v = (realYL - meanPos)**2 # you have to use meanPos not realMean
     v = sum(v)
     #print('this is v ', v)
     #print('u/v ', u/v)
