@@ -246,68 +246,73 @@ def build_regression_model(img_placeholder, train_placeholder, numOutputs):
     img_float = model.add(op=tf.to_float(img_placeholder, name='img_float'))
 
     ## layer 1
-    ch01 = 16
+    ch01 = 8
     xx = 8
     yy = 8
     kernel = tf.Variable(tf.truncated_normal([xx,yy,1,ch01], mean=0.0, stddev=0.03))
-    conv = model.add(op=tf.nn.conv2d(img_float, kernel, strides=(1,1,1,1), 
+    conv = model.add(op=tf.nn.conv2d(img_float, kernel, strides=(1,1,2,1), 
                                      padding='SAME',data_format='NHWC'),
                      var_to_reg=kernel)
     batch = model.add_batch_norm(eps=1e-06, mode=0, axis=3, momentum=0.9)
-    relu = model.add(op=tf.nn.relu(batch))
-    pool = model.add(op=tf.nn.max_pool(value=relu, ksize=(1,2,2,1), 
-                                       strides=(1,3,3,1), padding='SAME'))
+    elu = model.add(op=tf.nn.elu(batch))
 
     ## layer 2
-    ch02=16
+    ch02=8
     xx=6
     yy=6
     kernel = tf.Variable(tf.truncated_normal([xx,yy,ch01,ch02], mean=0.0, stddev=0.03))
-    conv = model.add(op=tf.nn.conv2d(pool, kernel, strides=(1,1,1,1), 
+    conv = model.add(op=tf.nn.conv2d(elu, kernel, strides=(1,1,2,1), 
                                      padding='SAME',data_format='NHWC'),
                      var_to_reg=kernel)
     batch = model.add_batch_norm(eps=1e-06, mode=0, axis=3, momentum=0.9)
-    relu = model.add(op=tf.nn.relu(batch))
-    pool = model.add(op=tf.nn.max_pool(value=relu, ksize=(1,3,3,1), 
-                                       strides=(1,3,3,1), padding='SAME'))
-    
+    elu = model.add(op=tf.nn.elu(batch))
+
     ## layer 3
-    ch03 = 16
+    ch03 = 8
     xx = 6
     yy = 6
     kernel = tf.Variable(tf.truncated_normal([xx,yy,ch02,ch03], mean=0.0, stddev=0.03))
-    conv = model.add(op=tf.nn.conv2d(pool, kernel, strides=(1,1,1,1), 
+    conv = model.add(op=tf.nn.conv2d(elu, kernel, strides=(1,2,3,1), 
                                      padding='SAME',data_format='NHWC'),
                      var_to_reg=kernel)
     batch = model.add_batch_norm(eps=1e-06, mode=0, axis=3, momentum=0.9)
-    relu = model.add(op=tf.nn.relu(batch))
-    pool = model.add(op=tf.nn.max_pool(value=relu, ksize=(1,3,3,1), 
-                                       strides=(1,3,3,1), padding='SAME'))
-    
-    ## flatten
-    num_conv_outputs = 1
-    for dim in pool.get_shape()[1:].as_list():
-        num_conv_outputs *= dim
-    model.conv_outputs = tf.reshape(pool, [-1, num_conv_outputs])
+    elu = model.add(op=tf.nn.elu(batch))
     
     ## layer 4
+    ch03 = 8
+    xx = 6
+    yy = 6
+    kernel = tf.Variable(tf.truncated_normal([xx,yy,ch02,ch03], mean=0.0, stddev=0.03))
+    conv = model.add(op=tf.nn.conv2d(elu, kernel, strides=(1,2,3,1), 
+                                     padding='SAME',data_format='NHWC'),
+                     var_to_reg=kernel)
+    batch = model.add_batch_norm(eps=1e-06, mode=0, axis=3, momentum=0.9)
+    elu = model.add(op=tf.nn.elu(batch))
+
+    ## flatten
+    num_conv_outputs = 1
+    for dim in elu.get_shape()[1:].as_list():
+        num_conv_outputs *= dim
+    model.conv_outputs = tf.reshape(elu, [-1, num_conv_outputs])
+    
+    ## layer 5
     hidden04 = 48
     weights = tf.Variable(tf.truncated_normal([num_conv_outputs, hidden04], mean=0.0, stddev=0.03))
     xw = model.add(tf.matmul(model.conv_outputs, weights), var_to_reg=weights)
     batch = model.add_batch_norm(eps=1e-06, mode=1, momentum=0.9)
-    relu = model.add(op=tf.nn.relu(batch))
+    elu = model.add(op=tf.nn.elu(batch))
 
-    ## layer 5
+    ## layer 6
     hidden05 = 32
     weights = tf.Variable(tf.truncated_normal([hidden04, hidden05], mean=0.0, stddev=0.03))
-    xw = model.add(tf.matmul(relu, weights), var_to_reg=weights)
+    xw = model.add(tf.matmul(elu, weights), var_to_reg=weights)
     batch = model.add_batch_norm(eps=1e-06, mode=1, momentum=0.9)
-    relu = model.add(op=tf.nn.relu(batch))
+    elu = model.add(op=tf.nn.elu(batch))
 
     # final layer, logits
     weights = tf.Variable(tf.truncated_normal([hidden05, numOutputs], mean=0.0, stddev=0.03))
     bias = tf.Variable(tf.constant(value=0.0, dtype=tf.float32, shape=[numOutputs]))
-    xw_plus_b = model.add(tf.nn.xw_plus_b(relu, weights, bias), 
+    xw_plus_b = model.add(tf.nn.xw_plus_b(elu, weights, bias), 
                           var_to_reg = [weights, bias], regWeight=0.2*regWeight)
     
     model.final_logits = xw_plus_b
